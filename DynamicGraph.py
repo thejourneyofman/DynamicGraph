@@ -140,8 +140,8 @@ class ProbGraph():
                     self.neighbours.get(pair[1]).append(pair[0])
                     self.E.append(pair)
             self.connected_nodes.extend(targets)
-            self.connected_nodes.extend([self.source] * edge)
-        self.source += 1
+            self.connected_nodes.extend([self.source] * len(targets))
+            self.source += 1
 
     def _createPair(self, nodes):
         u"""Generate an isolated pair in the graph, not connected
@@ -163,9 +163,9 @@ class ProbGraph():
         """
         if self.copy:
             return
-        skip = len(nodes)
-        while (len(nodes) > 0):
-            edge = power_law(xmin=1, xmax=self.gamma).rvs(size=1)[0]
+        self.source += len(nodes)
+        while (len(nodes) > 0) and self.source < len(self.V):
+            edge = power_law(xmin=1, xmax=len(nodes)).rvs(size=1)[0]
             targets = []
             while (len(targets) < edge and len(nodes) > 0):
                 x = random.choice(nodes)
@@ -177,8 +177,96 @@ class ProbGraph():
                     self.neighbours.get(pair[1]).append(pair[0])
                     self.E.append(pair)
             self.connected_nodes.extend(targets)
+            self.connected_nodes.extend([self.source] * len(targets))
+            self.source += 1
+
+    def _createEdges(self, edge_num):
+        u"""Add new edges to a graph using BA model following a power-law
+            rule of edge degrees for every node.
+            :param edge_num: the max number of edges in the graph.
+        """
+        if self.copy:
+            return
+        while self.source < len(self.V) and len(self.E) <= edge_num:
+            # print("current of source", self.source)
+            iso = power_law(xmin=1, xmax=self.gamma).rvs(size=1)[0]
+            if self.source + iso > len(self.V):
+                self.isolated_nodes.extend(list(range(self.source, len(self.V))))
+                self.source = len(self.V)
+                break
+            elif iso == 1:
+                self.isolated_nodes.append(self.source)
+                self.source += 1
+                continue
+            elif iso == 2:
+                self._createPair([self.source, self.source + 1])
+                continue
+            elif iso < self.gamma:
+                self._createNet(list(range(self.source, self.source + iso)))
+                continue
+
+            # Add Edges to main framework
+            edge = power_law(xmin=1, xmax=self.gamma).rvs(size=1)[0]
+            targets = set()
+            while len(targets) < edge:
+                x = random.choice(self.connected_nodes)
+                targets.add(x)
+            for pair in list(zip([self.source] * edge, targets)):
+                if pair[0] != pair[1]:
+                    self.neighbours.get(pair[0]).append(pair[1])
+                    self.neighbours.get(pair[1]).append(pair[0])
+                    self.E.append(pair)
+            self.connected_nodes.extend(targets)
             self.connected_nodes.extend([self.source] * edge)
-        self.source += skip
+            self.source += 1
+
+    def _dfsearch_recursive(self, node):
+        u"""A recursive way using dfs algorithm to search nodes by
+            their neighbours to return the connected list.
+            :param node: the node started searching by dfs.
+        """
+        self.visited[node] = 1
+        self.temp_component.append(node)
+        for neighbour in self.neighbours[node]:
+            if self.visited[neighbour] == 0:
+                self._dfsearch(neighbour)
+
+    def _dfs_non_recursive(self, nodes):
+        u"""A None recursive way using dfs algorithm to search neighbours
+            and return a full connected list.
+            :param nodes: the node list that are searched by dfs.
+        """
+        visited = {}
+        for v in nodes:
+            visited[v] = False
+        cluster = []
+        end_of_scan = nodes[0]
+        for v in nodes:
+            if not any(x != True for x in visited.values()) and cluster:
+                cluster.append(end_of_scan)
+                self.connected_components.append(cluster)
+                break
+            if not visited[v]:
+                yield v
+                visited[v] = True
+                stack = [(v, iter(self.neighbours[v]))]
+                if v != end_of_scan and cluster:
+                    cluster.append(end_of_scan)
+                    self.connected_components.append(cluster)
+                    end_of_scan = 0
+                    cluster = []
+                while stack:
+                    _, neighbourlist = stack[-1]
+                    try:
+                        neighbour = next(neighbourlist)
+                        if not visited[neighbour]:
+                            yield neighbour
+                            visited[neighbour] = True
+                            stack.append((neighbour, iter(self.neighbours[neighbour])))
+                            cluster.append(neighbour)
+                    except StopIteration:
+                        end_of_scan = v
+                        stack.pop()
 
     def createComponents(self):
         u"""Generate a list of all connected components using a
@@ -186,7 +274,7 @@ class ProbGraph():
             :param None
         """
         self.connected_components = []
-        for x in self._dfs_non_recursive():
+        for x in self._dfs_non_recursive(self.V):
             print("visited", x)
 
         ##############################################
@@ -245,89 +333,33 @@ class ProbGraph():
             self.connected_nodes.append(pair[0])
             self.connected_nodes.append(pair[1])
 
-    def _createEdges(self, edge_num):
-        u"""Add new edges to a graph using BA model following a power-law
-            rule of edge degrees for every node.
-            :param edge_num: the max number of edges in the graph.
+    def delNodesFrom(self, nodes):
+        u"""Delete nodes from an exiting graph in a dynamic way.
+            :param nodes: the nodes list to be deleted from the graph
         """
-        if self.copy:
-            return
-        while self.source < len(self.V) and len(self.E) <= edge_num:
-            #print("current of source", self.source)
-            iso = power_law(xmin=1, xmax=self.gamma).rvs(size=1)[0]
-            if iso == 1:
-                self.isolated_nodes.append(self.source)
-                self.source += 1
-                continue
-            elif iso == 2:
-                if self.source + 2 > len(self.V):
-                    self.source += 1
+        for v in [value for value in nodes if value in self.V]:
+            self.V.remove(v)
+            self.connected_nodes[:] = (value for value in self.connected_nodes if value != v)
+            for n in self.neighbours[v]:
+                self.connected_nodes.remove(n)
+                self.neighbours[n].remove(v)
+                if (n, v) in self.E:
+                    self.E.remove((n, v))
                 else:
-                    self._createPair([self.source, self.source + 1])
-                continue
-            elif iso < self.gamma:
-                if self.source + iso > len(self.V):
-                    self._createNet(list(range(self.source, len(self.V))))
-                else:
-                    self._createNet(list(range(self.source, self.source + iso)))
-                continue
-
-            #Add Edges to main framework
-            edge = power_law(xmin=1, xmax=self.gamma).rvs(size=1)[0]
-            targets = set()
-            while len(targets) < edge:
-                x = random.choice(self.connected_nodes)
-                targets.add(x)
-            for pair in list(zip([self.source] * edge, targets)):
-                if pair[0] != pair[1]:
-                    self.neighbours.get(pair[0]).append(pair[1])
-                    self.neighbours.get(pair[1]).append(pair[0])
-                    self.E.append(pair)
-            self.connected_nodes.extend(targets)
-            self.connected_nodes.extend([self.source] * edge)
-            self.source += 1
-
-    def _dfsearch_recursive(self, node):
-        u"""A recursive way using dfs algorithm to search nodes by
-            their neighbours to return the connected list.
-            :param node: the node started searching by dfs.
-        """
-        self.visited[node] = 1
-        self.temp_component.append(node)
-        for neighbour in self.neighbours[node]:
-            if self.visited[neighbour] == 0:
-                self._dfsearch(neighbour)
-
-    def _dfs_non_recursive(self):
-        u"""A None recursive way using dfs algorithm to search neighbours
-            and return a full connected list.
-            :param None
-        """
-        visited = len(self.V) * [False]
-        cluster = []
-        end_of_scan = 0
-        for v in self.V:
-            if not visited[v]:
-                yield v
-                visited[v] = True
-                stack = [(v, iter(self.neighbours[v]))]
-                if v != end_of_scan and cluster:
-                    cluster.append(end_of_scan)
-                    self.connected_components.append(cluster)
-                    end_of_scan = []
-                    cluster = []
-                while stack:
-                    _, neighbourlist = stack[-1]
-                    try:
-                        neighbour = next(neighbourlist)
-                        if not visited[neighbour]:
-                            yield neighbour
-                            visited[neighbour] = True
-                            stack.append((neighbour, iter(self.neighbours[neighbour])))
-                            cluster.append(neighbour)
-                    except StopIteration:
-                        end_of_scan = v
-                        stack.pop()
+                    self.E.remove((v, n))
+                self.neighbours[v] = []
+        sorted_components = sorted(self.connected_components, key=len, reverse=True)
+        p = set(nodes)
+        for i, component in enumerate(sorted_components):
+            s = set(component)
+            if len(tuple(s & p)) > 0:
+                self.connected_components.remove(component)
+                component[:] = (value for value in component if value not in list(tuple(s & p)))
+                for x in self._dfs_non_recursive(component):
+                    print("visited", x)
+                p -= s
+                if len(tuple(p)) == 0:
+                    break
 
     def bfsearch(self, start_node):
         u"""A bfs algorithm to search all connected components from
@@ -354,7 +386,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     from networkx.drawing.nx_agraph import graphviz_layout
 
-    start=datetime.now()
+    start = datetime.now()
     bn = ProbGraph(node_num=2000, edge_num=20000, gamma=3)
     print("Time used for graph generation: ", datetime.now() - start)
 
@@ -372,3 +404,4 @@ if __name__ == '__main__':
     plt.hist(component_size, normed=True, bins=200)
     plt.ylabel('Probability of size of connected components')
     plt.show()
+
