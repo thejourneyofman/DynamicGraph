@@ -192,7 +192,10 @@ if __name__ == '__main__':
     # Test Scenario.
     # N - node count -  200,000
     # E - edge count - 2,000,000
-    # ADD(L, K)  -> L =  50,000, K = 500,000
+    # 1 ADD(L, K)  -> L =  50,000, K = 500,000
+    # 2 DEL(NODES) -> Random
+    # 3 ADD(L, K)  -> L =  50,000, K = 500,000
+    # 4 DEL(NODES) -> Random
     #############################
     start = datetime.now()
     print("Test Scenario Starts.....")
