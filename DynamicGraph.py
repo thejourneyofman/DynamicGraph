@@ -33,7 +33,7 @@ from collections import deque
 def power_law(xmin, xmax):
     u"""Returns a scipy.stats._distn_infrastructure.rv_sample object
         :param xmin: the min value of in the sample
-        :param xmax: the min value of in the sample
+        :param xmax: the max value of in the sample
         it generate the probabilidy of the value in range of [xmin, xman]
         following a powerlaw distrubution
     """
