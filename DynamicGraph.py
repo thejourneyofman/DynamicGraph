@@ -99,7 +99,7 @@ class ProbGraph():
             #############################
             self._initialize(node_num)
             self._createEdges(edge_num)
-            self.createComponents()
+            self.updateComponents()
 
         else:
             self.V = []
@@ -164,7 +164,7 @@ class ProbGraph():
         if self.copy:
             return
         self.source += len(nodes)
-        while (len(nodes) > 0) and self.source < len(self.V):
+        while (len(nodes) > 0) and self.source < self.V[-1] + 1:
             edge = power_law(xmin=1, xmax=len(nodes)).rvs(size=1)[0]
             targets = []
             while (len(targets) < edge and len(nodes) > 0):
@@ -187,12 +187,12 @@ class ProbGraph():
         """
         if self.copy:
             return
-        while self.source < len(self.V) and len(self.E) <= edge_num:
+        while self.source < self.V[-1] + 1 and len(self.E) <= edge_num:
             # print("current of source", self.source)
             iso = power_law(xmin=1, xmax=self.gamma).rvs(size=1)[0]
-            if self.source + iso > len(self.V):
-                self.isolated_nodes.extend(list(range(self.source, len(self.V))))
-                self.source = len(self.V)
+            if self.source + iso > self.V[-1] + 1:
+                self.isolated_nodes.extend(list(range(self.source, self.V[-1] + 1)))
+                self.source = self.V[-1] + 1
                 break
             elif iso == 1:
                 self.isolated_nodes.append(self.source)
@@ -268,7 +268,7 @@ class ProbGraph():
                         end_of_scan = v
                         stack.pop()
 
-    def createComponents(self):
+    def updateComponents(self):
         u"""Generate a list of all connected components using a
             None recursive dfs algorithm from all edges pairs
             :param None
@@ -298,7 +298,7 @@ class ProbGraph():
             :param node_num: the number of newly added nodes.
             :param edge_num: the max number of newly added edges.
         """
-        nodes = list(range(len(self.V), len(self.V) + node_num))
+        nodes = list(range(self.V[-1] + 1, self.V[-1] + 1 + node_num))
         for v in nodes:
             self.V.append(v)
             self.neighbours[v] = []
@@ -306,7 +306,7 @@ class ProbGraph():
             self.visited[v] = 0
         self.source += 1
         self._createEdges(len(self.E) + edge_num)
-        self.createComponents()
+        self.updateComponents()
 
     def addNodesFrom(self, nodes):
         u"""Add nodes from scrach to create graph from a node list.
@@ -340,6 +340,7 @@ class ProbGraph():
         for v in [value for value in nodes if value in self.V]:
             self.V.remove(v)
             self.connected_nodes[:] = (value for value in self.connected_nodes if value != v)
+            self.isolated_nodes[:] = (value for value in self.isolated_nodes if value != v)
             for n in self.neighbours[v]:
                 self.connected_nodes.remove(n)
                 self.neighbours[n].remove(v)
@@ -355,6 +356,8 @@ class ProbGraph():
             if len(tuple(s & p)) > 0:
                 self.connected_components.remove(component)
                 component[:] = (value for value in component if value not in list(tuple(s & p)))
+                if len(component) <= 1:
+                    continue
                 for x in self._dfs_non_recursive(component):
                     print("visited", x)
                 p -= s
