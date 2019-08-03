@@ -25,9 +25,14 @@ I include test program to troubleshoot the use of the library.  It's a simple co
 Output:
 
     ----------------------------------------------------------------------
-    Time used to generate the graph from scratch  0:00:00.192581
-    The size of the main frame is 69
-    Time used to add new nodes dynamically  0:00:02.596260
+    The size of the main frame is 523
+    Time used to add new nodes dynamically  0:00:04.091755
+    The size of the main frame is 497
+    Time used to delete nodes dynamically  0:00:01.972822
+    The size of the main frame is 581
+    Time used to add new nodes dynamically  0:00:03.359419
+    The size of the main frame is 540
+    Time used to delete nodes dynamically  0:00:01.879742
 
 Available Classes
 -----------------
