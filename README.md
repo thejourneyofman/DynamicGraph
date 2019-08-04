@@ -5,6 +5,8 @@ Dynamic Graph
 Dynamic Graph is a simple Python module for generating a graph with its edge degrees and sizes of connected components following a power law
 distribution. Its complexity is O(N) strictly.
 
+[A Live DEMO](https://dynamicgraph.herokuapp.com)
+
 **Prerequisites:** 
 
 - [Python 3](https://www.python.org/),  [scipy](https://www.scipy.org/), [numpy](http://www.numpy.org/),
