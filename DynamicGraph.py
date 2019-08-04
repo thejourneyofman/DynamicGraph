@@ -108,7 +108,6 @@ class ProbGraph():
             self.connected_nodes = []
             self.connected_components = []
             self.gamma = gamma
-            self.curves = curves
             self.neighbours = {}
             self.visited = {}
             self.source = gamma
